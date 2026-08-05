@@ -84,6 +84,17 @@ async def get_user_groups_for_custom_headers(
         return None
 
 
+def _get_oauth_sub(user: Optional[Any], provider: str) -> str:
+    """Return the OAuth `sub` stored under `user.oauth[provider]`, or ''.
+
+    Tolerates malformed oauth blobs and coerces non-string subs (e.g. GitHub numeric ids).
+    """
+    oauth = getattr(user, 'oauth', None) if user else None
+    entry = oauth.get(provider) if isinstance(oauth, dict) else None
+    sub = entry.get('sub') if isinstance(entry, dict) else None
+    return str(sub) if sub else ''
+
+
 async def get_custom_headers(custom_headers: dict, user=None, metadata: dict = None, request=None) -> dict:
     user_groups = await get_user_groups_for_custom_headers(custom_headers, user)
     return parse_custom_headers(custom_headers, user, metadata, request=request, user_groups=user_groups)
@@ -125,6 +136,11 @@ def parse_custom_headers(
         '{{USER_NAME}}': (user.name.strip() if user else '') or '',
         '{{USER_EMAIL}}': (user.email.strip() if user else '') or '',
         '{{USER_ROLE}}': (user.role if user else '') or '',
+        '{{USER_OAUTH_OIDC_SUB}}': _get_oauth_sub(user, 'oidc'),
+        '{{USER_OAUTH_GOOGLE_SUB}}': _get_oauth_sub(user, 'google'),
+        '{{USER_OAUTH_MICROSOFT_SUB}}': _get_oauth_sub(user, 'microsoft'),
+        '{{USER_OAUTH_GITHUB_SUB}}': _get_oauth_sub(user, 'github'),
+        '{{USER_OAUTH_FEISHU_SUB}}': _get_oauth_sub(user, 'feishu'),
         '{{USER_GROUPS}}': ','.join(group.name.strip() for group in user_groups) if user_groups else '',
         '{{USER_GROUP_IDS}}': ','.join(group.id for group in user_groups) if user_groups else '',
         '{{USER_AGENT}}': user_agent,
